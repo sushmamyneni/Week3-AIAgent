@@ -1,0 +1,8 @@
+{
+  "incident_id": "inc-07",
+  "system": "spark",
+  "app_name": "daily_aggregates",
+  "app_id": "application_1697812345678_0455",
+  "state": "failed",
+  "failed_at": "2026-10-22T02:13:05Z"
+}

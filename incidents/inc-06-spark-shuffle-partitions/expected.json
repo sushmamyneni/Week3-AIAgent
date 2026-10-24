@@ -1,0 +1,36 @@
+{
+  "incident_id": "inc-06",
+  "kind": "docs",
+  "expected_action": "config_change",
+  "root_cause_keywords": [
+    "OutOfMemoryError",
+    "shuffle",
+    "16",
+    "partitions",
+    "3.9 GiB per task"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "doc",
+      "ref": "sql-performance-tuning.md > Tuning Partitions (spark.sql.shuffle.partitions)"
+    },
+    {
+      "kind": "code",
+      "ref": "spark_jobs/conf/sessionize_events.conf:5"
+    },
+    {
+      "kind": "log",
+      "ref": "16 shuffle tasks, about 3.9 GiB each, OutOfMemoryError in the reading stage"
+    }
+  ],
+  "expected_target": {
+    "file": "spark_jobs/conf/sessionize_events.conf",
+    "line": 5,
+    "key": "spark.sql.shuffle.partitions"
+  },
+  "expected_owner": "@acme/analytics-engineering",
+  "traps": [
+    "The OutOfMemoryError looks like an executor memory problem; the better fix is more, smaller shuffle partitions.",
+    "Only 16 tasks share about 62 GiB of shuffle data (3.9 GiB each)."
+  ]
+}

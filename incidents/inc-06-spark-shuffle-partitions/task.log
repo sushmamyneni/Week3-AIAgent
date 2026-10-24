@@ -1,0 +1,16 @@
+26/10/21 03:00:07 INFO SparkContext: Running Spark version 4.2.0
+26/10/21 03:00:07 INFO SparkContext: Submitted application: sessionize_events
+26/10/21 03:00:12 INFO Spark config: spark.executor.memory=6g spark.executor.instances=12 spark.sql.shuffle.partitions=16
+26/10/21 03:00:15 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+26/10/21 03:20:44 INFO DAGScheduler: ShuffleMapStage 6 (parquet at sessionize_events.py:8) finished in 1210.4 s
+26/10/21 03:20:45 INFO DAGScheduler: Submitting ResultStage 7 with 16 tasks
+26/10/21 03:20:45 INFO ShuffleBlockFetcherIterator: Getting 188 non-empty blocks including 0 local blocks and 188 remote blocks, total size 3.9 GiB
+26/10/21 03:41:02 WARN TaskSetManager: Lost task 3.0 in stage 7.0 (TID 931) (ip-10-0-4-12.ec2.internal executor 2): java.lang.OutOfMemoryError: Java heap space
+	at org.apache.spark.unsafe.map.BytesToBytesMap.allocate(BytesToBytesMap.java:818)
+	at org.apache.spark.sql.execution.window.WindowExec.$anonfun$doExecute$3(WindowExec.scala:131)
+26/10/21 03:41:03 WARN TaskSetManager: Lost task 9.0 in stage 7.0 (TID 937) (ip-10-0-4-19.ec2.internal executor 5): java.lang.OutOfMemoryError: Java heap space
+26/10/21 03:44:51 WARN TaskSetManager: Lost task 3.1 in stage 7.0 (TID 962) (ip-10-0-4-31.ec2.internal executor 7): java.lang.OutOfMemoryError: Java heap space
+26/10/21 03:47:12 ERROR TaskSetManager: Task 3 in stage 7.0 failed 4 times; aborting job
+26/10/21 03:47:12 INFO DAGScheduler: Stage 7 summary: 16 tasks; shuffle read per task: average 3.9 GiB, maximum 5.2 GiB
+26/10/21 03:47:30 ERROR ApplicationMaster: User class threw exception: org.apache.spark.SparkException: Job aborted due to stage failure: Task 3 in stage 7.0 failed 4 times, most recent failure: Lost task 3.2 in stage 7.0 (TID 975): java.lang.OutOfMemoryError: Java heap space
+26/10/21 03:47:30 INFO ApplicationMaster: Final app status: FAILED, exitCode: 15

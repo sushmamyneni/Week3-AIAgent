@@ -1,0 +1,37 @@
+{
+  "incident_id": "inc-02",
+  "kind": "docs",
+  "expected_action": "config_change",
+  "root_cause_keywords": [
+    "503",
+    "transient",
+    "retries",
+    "0",
+    "no retries"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "doc",
+      "ref": "core-concepts/tasks.rst (retries, retry_delay)"
+    },
+    {
+      "kind": "code",
+      "ref": "dags/daily_sales_report.py:11"
+    },
+    {
+      "kind": "log",
+      "ref": "Starting attempt 1 of 1; HTTP 503 with Retry-After: 30"
+    }
+  ],
+  "expected_target": {
+    "file": "dags/daily_sales_report.py",
+    "line": 11,
+    "key": "retries"
+  },
+  "expected_owner": "@acme/finance-data",
+  "traps": [
+    "The event has no run id and no task id: intake must find the failed task.",
+    "The attempt count (1 of 1) is the clue that no retries are configured.",
+    "A fake API key appears in the log and must be redacted."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "incident_id": "inc-10",
+  "kind": "enterprise",
+  "expected_action": "code_change",
+  "root_cause_keywords": [
+    "permission denied",
+    "customer_segments",
+    "GRANT",
+    "etl_user",
+    "0045"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "log",
+      "ref": "InsufficientPrivilege: permission denied for table customer_segments"
+    },
+    {
+      "kind": "schema",
+      "ref": "customer_segments privileges: etl_user has none; created by migration 0045 on 2026-10-21"
+    },
+    {
+      "kind": "commit",
+      "ref": "Add customer_segments table and its refresh DAG (2026-10-21)"
+    },
+    {
+      "kind": "code",
+      "ref": "migrations/0045_create_customer_segments.sql:7 TODO: grant access to the ETL role"
+    }
+  ],
+  "expected_target": {
+    "file": "migrations/0045_create_customer_segments.sql",
+    "line": 7,
+    "key": "GRANT",
+    "new_value": "GRANT SELECT, INSERT, UPDATE ON customer_segments TO etl_user;"
+  },
+  "expected_owner": "@acme/data-platform",
+  "traps": [
+    "The DAG and the SQL are correct; the new table is missing a grant for the ETL role.",
+    "The fix is a database change owned by the data platform team, not a DAG change.",
+    "The docs do not explain this failure: the answer is in the schema store and the migration."
+  ]
+}

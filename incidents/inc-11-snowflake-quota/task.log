@@ -1,0 +1,11 @@
+[2026-10-22T08:00:02.440+0000] INFO - Starting attempt 1 of 2
+[2026-10-22T08:00:03.102+0000] INFO - Connecting to Snowflake account acme-xy12345 as FINANCE_ETL (warehouse=FINANCE_WH)
+[2026-10-22T08:00:04.870+0000] INFO - Authenticated; resuming warehouse FINANCE_WH
+[2026-10-22T08:03:11.560+0000] ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/opt/airflow/dags/acme_etl/finance.py", line 88, in push_to_snowflake
+    cursor.execute("ALTER WAREHOUSE FINANCE_WH RESUME")
+snowflake.connector.errors.ProgrammingError: 000605 (57014): SQL execution error: Warehouse 'FINANCE_WH' cannot be resumed because resource monitor 'FINANCE_MONITOR' has exceeded its quota.
+[2026-10-22T08:03:11.800+0000] INFO - Marking task as UP_FOR_RETRY. dag_id=finance_snowflake_sync, task_id=push_finance_summary, run_id=scheduled__2026-10-22T08:00:00+00:00
+[2026-10-22T08:03:12.100+0000] ERROR - Retry 2 of 2 skipped: the error is marked non-retryable by the connector
+[2026-10-22T08:03:12.205+0000] INFO - Marking task as FAILED. dag_id=finance_snowflake_sync, task_id=push_finance_summary, run_id=scheduled__2026-10-22T08:00:00+00:00

@@ -1,0 +1,8 @@
+# Worker memory and CPU limits per DAG (read by the deployment tooling)
+inventory_refresh:
+  worker_memory_limit: 2Gi
+  worker_cpu_limit: 1
+orders_load:
+  worker_memory_limit: 1Gi
+daily_sales_report:
+  worker_memory_limit: 1Gi

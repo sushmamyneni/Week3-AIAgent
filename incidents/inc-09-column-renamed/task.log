@@ -1,0 +1,15 @@
+[2026-10-19T07:00:02.771+0000] INFO - Starting attempt 1 of 2
+[2026-10-19T07:00:03.205+0000] INFO - Running SQL file sql/marketing_export.sql on conn_id=warehouse (user=etl_user)
+[2026-10-19T07:00:03.690+0000] ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/opt/airflow/dags/acme_etl/loaders.py", line 27, in run_sql_file
+    cursor.execute(sql)
+psycopg2.errors.UndefinedColumn: column c.cust_email does not exist
+LINE 4:     c.cust_email,
+            ^
+[2026-10-19T07:00:03.902+0000] INFO - Marking task as UP_FOR_RETRY. dag_id=marketing_export, task_id=export_customers, run_id=scheduled__2026-10-19T07:00:00+00:00
+[2026-10-19T07:01:04.330+0000] INFO - Starting attempt 2 of 2
+[2026-10-19T07:01:05.118+0000] ERROR - Task failed with exception
+psycopg2.errors.UndefinedColumn: column c.cust_email does not exist
+LINE 4:     c.cust_email,
+[2026-10-19T07:02:14.050+0000] INFO - Marking task as FAILED. dag_id=marketing_export, task_id=export_customers, run_id=scheduled__2026-10-19T07:00:00+00:00

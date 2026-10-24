@@ -1,0 +1,12 @@
+26/10/22 02:00:09 INFO SparkContext: Running Spark version 4.2.0
+26/10/22 02:00:09 INFO SparkContext: Submitted application: daily_aggregates
+26/10/22 02:00:24 INFO YarnAllocator: Will request 10 executor container(s), each with 4 core(s) and 9011 MB memory (including 819 MB of overhead)
+26/10/22 02:09:31 INFO DAGScheduler: ShuffleMapStage 2 (groupBy at daily_aggregates.py:7) finished in 481.7 s
+26/10/22 02:11:48 WARN YarnAllocator: Container marked as failed: container_e12_1697812345678_0455_01_000009 on host: ip-10-0-3-44.ec2.internal. Exit status: -100. Diagnostics: Container released on a *lost* node
+26/10/22 02:11:48 WARN YarnAllocator: Container marked as failed: container_e12_1697812345678_0455_01_000011 on host: ip-10-0-3-44.ec2.internal. Exit status: -100. Diagnostics: Container released on a *lost* node
+26/10/22 02:11:49 WARN TaskSetManager: Lost task 52.0 in stage 3.0 (TID 2210) (ip-10-0-3-44.ec2.internal executor 8): ExecutorLostFailure (executor 8 exited unrelated to the running tasks) Reason: Container marked as failed: container_e12_1697812345678_0455_01_000009 on host: ip-10-0-3-44.ec2.internal. Exit status: -100. Diagnostics: Container released on a *lost* node
+26/10/22 02:11:50 INFO YarnSchedulerBackend$YarnDriverEndpoint: Requesting driver to remove executor 8 for reason Container marked as failed
+26/10/22 02:11:52 WARN YarnAllocator: Node ip-10-0-3-44.ec2.internal was decommissioned (spot instance reclaimed by the cloud provider)
+26/10/22 02:12:40 WARN YarnAllocator: Container marked as failed: container_e12_1697812345678_0455_01_000014 on host: ip-10-0-3-44.ec2.internal. Exit status: -100. Diagnostics: Container released on a *lost* node
+26/10/22 02:13:04 ERROR ApplicationMaster: Max number of executor failures (20) reached
+26/10/22 02:13:05 INFO ApplicationMaster: Final app status: FAILED, exitCode: 11, (reason: Max number of executor failures (20) reached)

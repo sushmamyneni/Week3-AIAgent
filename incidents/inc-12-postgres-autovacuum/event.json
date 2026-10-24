@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-12",
+  "system": "airflow",
+  "dag_id": "ops_health_check",
+  "run_id": "scheduled__2026-10-18T05:00:00+00:00",
+  "task_id": "table_health_check",
+  "state": "failed",
+  "failed_at": "2026-10-18T05:02:07Z"
+}

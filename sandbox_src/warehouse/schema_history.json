@@ -1,0 +1,102 @@
+{
+  "_note": "Synthetic schema store for the Acme sandbox. Schemas only, never rows.",
+  "tables": {
+    "orders": {
+      "current": {
+        "id": "BIGINT",
+        "customer_id": "BIGINT",
+        "total": "NUMERIC(12,2)",
+        "created_at": "TIMESTAMP",
+        "customer_zip": "VARCHAR(10)"
+      },
+      "privileges": {
+        "etl_user": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "migration_user": [
+          "ALL"
+        ]
+      },
+      "history": [
+        {
+          "migration": "0040",
+          "date": "2026-08-03",
+          "change": "table created"
+        },
+        {
+          "migration": "0041",
+          "date": "2026-08-03",
+          "change": "added column customer_zip INTEGER"
+        },
+        {
+          "migration": "0043",
+          "date": "2026-10-18",
+          "change": "total NUMERIC(10,2) -> NUMERIC(12,2)",
+          "reason": "large wholesale orders overflowed the old type"
+        },
+        {
+          "migration": "0044",
+          "date": "2026-10-20",
+          "change": "customer_zip INTEGER -> VARCHAR(10)",
+          "reason": "international postal codes are not always numbers"
+        }
+      ]
+    },
+    "customers": {
+      "current": {
+        "id": "BIGINT",
+        "email": "VARCHAR(255)",
+        "first_name": "VARCHAR(100)",
+        "phone": "VARCHAR(20)",
+        "country": "CHAR(2)",
+        "marketing_opt_in": "BOOLEAN"
+      },
+      "privileges": {
+        "etl_user": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "migration_user": [
+          "ALL"
+        ]
+      },
+      "history": [
+        {
+          "migration": "0040",
+          "date": "2026-08-03",
+          "change": "table created (column cust_email)"
+        },
+        {
+          "migration": "0042",
+          "date": "2026-10-14",
+          "change": "column cust_email renamed to email",
+          "reason": "clearer column name"
+        }
+      ]
+    },
+    "customer_segments": {
+      "current": {
+        "customer_id": "BIGINT",
+        "segment": "VARCHAR(30)",
+        "updated_at": "TIMESTAMP"
+      },
+      "privileges": {
+        "etl_user": [],
+        "migration_user": [
+          "ALL"
+        ]
+      },
+      "history": [
+        {
+          "migration": "0045",
+          "date": "2026-10-21",
+          "change": "table created",
+          "note": "no privileges were granted to etl_user"
+        }
+      ]
+    }
+  }
+}

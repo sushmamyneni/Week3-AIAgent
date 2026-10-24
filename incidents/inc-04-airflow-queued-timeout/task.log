@@ -1,0 +1,9 @@
+[2026-10-22T04:20:41.118+0000] INFO - Task instance publish_inventory is queued (upstream build_inventory_snapshot succeeded)
+[2026-10-22T04:20:41.455+0000] INFO - Executor reports: all 32 worker slots busy (parallelism=32); 14 tasks waiting
+[2026-10-22T04:25:42.003+0000] INFO - Executor reports: all 32 worker slots busy (parallelism=32); 11 tasks waiting
+[2026-10-22T04:30:42.760+0000] WARNING - Failing (1) tasks stuck in queued for more than 600 seconds: <TaskInstance: inventory_refresh.publish_inventory scheduled__2026-10-22T04:00:00+00:00 [queued]>
+[2026-10-22T04:30:53.012+0000] INFO - Task was queued for 612 seconds; scheduler.task_queued_timeout=600
+[2026-10-22T04:30:53.014+0000] INFO - Task instance state changed externally: state set to FAILED by the scheduler
+[2026-10-22T04:30:53.220+0000] INFO - Last heartbeat was 2 seconds ago
+[2026-10-22T04:30:53.431+0000] ERROR - Received SIGTERM. Terminating subprocess.
+[2026-10-22T04:30:53.600+0000] INFO - Marking task as FAILED. dag_id=inventory_refresh, task_id=publish_inventory, run_id=scheduled__2026-10-22T04:00:00+00:00

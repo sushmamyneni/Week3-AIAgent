@@ -1,0 +1,162 @@
+chat:
+  provider: nebius
+  model: Qwen/Qwen3-235B-A22B-Instruct-2507
+
+nebius:
+  api_base: https://api.tokenfactory.nebius.com/v1/
+
+embedding:
+  provider: huggingface    # local, runs on this machine
+  model: BAAI/bge-small-en-v1.5
+  dimensions: 384          # Pinecone index dimension is read from here
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
+  min_doc_chars: 300        # skip redirect stubs and generated pages shorter than this after cleaning
+  min_section_chars: 50     # skip heading-only sections
+
+retrieval:
+  dense_top_k: 8
+  bm25_top_k: 8
+  final_top_k: 6
+  relevance_threshold: 0.65   # midpoint of the gap between Snowflake (0.564) and the lowest real question (0.733)
+  tool_margin: 0.04           # a tool is searched if its best dense score is within this of the overall best
+  tools: [airflow, spark]
+  rrf_k: 60
+  query_prefix: "Represent this sentence for searching relevant passages: "
+  cross_tool_final_top_k: 10   # total slots when both tools are searched (5 + 5); single-tool questions keep final_top_k
+
+
+generation:
+  temperature: 0.2
+  max_tokens: 650
+  # Shown when the question is refused, whether by the threshold or by the model
+  refusal_message: "This is not covered in the Airflow and Spark docs I have."
+  # The instructions the model follows. {context} and {question} are filled in by the code.
+  system_prompt: |
+    You answer questions about Apache Airflow and Apache Spark using ONLY the numbered
+    context chunks provided by the user.
+
+    Rules:
+    1. Use only information that is written in the context. Do not use outside knowledge,
+       even if you know the answer.
+    2. If the context does not contain the answer, set answerable to false and say so in one
+       sentence. A chunk that only mentions the topic (for example, a setup guide that names
+       a database) is not an answer to a question about that topic.
+    3. Cite every claim with the number of the chunk it came from, like [1] or [2][3],
+       placed at the end of the sentence that makes the claim.
+    4. In cited, list the number of every chunk you cited in the answer.
+    5. Be concise and concrete. Name settings, parameters and file names exactly as they
+       are written in the context. If the question spans both Airflow and Spark, cover
+       both and say which tool each point belongs to.
+  user_prompt: |
+    Context:
+    {context}
+
+    Question: {question}
+
+
+indexing:
+  embed_batch_size: 64
+  upsert_batch_size: 100
+  fetch_batch_size: 100
+  max_retries: 5
+  retry_wait_seconds: 2
+
+tools:
+  log_max_chars: 6000        # a log longer than this gets trimmed
+  log_head_lines: 10         # lines always kept from the start
+  log_tail_lines: 30         # lines always kept from the end
+  log_error_context: 5       # lines kept before and after each error line
+  docs_strong_score: 0.75    # at or above this, a docs match counts as strong
+  code_repo_dir: sandbox/pipelines-repo   # the repository the code search reads (built by 2a_make_sandbox.py)
+  code_max_chunk_lines: 80                # a file this short stays whole; a longer one is split by function or statement
+  code_top_k: 5                           # how many hits the search tool returns
+  schema_store: sandbox/warehouse/schema_history.json   # the schema store: tables, columns, history, privileges
+  git_max_commits: 10                     # how many commits the history tool lists
+  git_max_diff_chars: 4000                # a commit's diff longer than this is cut
+
+pinecone:
+  index_name: airflow-spark-rag
+  namespace: docs-v1
+  cloud: aws
+  region: us-east-1        # serverless, so check what your account allows
+  metric: cosine
+
+query_prefix: "Represent this sentence for searching relevant passages: "
+
+paths:
+  corpus_dir: 'C:\MyGit\Week2-BuildRAGProject\Corpus'
+  data_dir: data
+  failure_source_dir: incoming     # where the agent's failure source reads failures (the simulator writes here)
+  fixtures_dir: incidents          # the 12 fixtures, including the answer keys (never read by the agent)
+  outbox_dir: outbox               # simulated notifications (a stand-in for Slack); ignored by git
+  tickets_dir: tickets             # where approved tickets are written (the simulated create_ticket); ignored by git
+
+corpus:
+  airflow:
+    root: airflow\airflow-core\docs
+    version: 3.3.2
+    keep: [core-concepts, authoring-and-scheduling, howto, administration-and-deployment, installation, tutorial, security, best-practices, faq, troubleshooting, start, ui]
+    skip: []
+  spark:
+    root: spark\docs
+    version: 4.2.0
+    keep: [configuration, tuning, sql-performance-tuning, monitoring, job-scheduling, cluster-overview, submitting-applications, spark-standalone, "running-on-*", rdd-programming-guide, "structured-streaming-*", sql-programming-guide, sql-getting-started, "sql-data-sources*", sql-migration-guide, sql-error-conditions, security, web-ui, streaming]
+    skip: ["ml-*", "mllib-*", "sparkr*", "graphx*", "sql-ref-*", img, css, js, _data, _includes, _layouts, _plugins, control-flow]
+
+test_questions:
+  - question: "How do I set retries on a task?"
+    expect: [core-concepts/tasks.rst]
+  - question: "What is the difference between a sensor's timeout and its retries?"
+    expect: [core-concepts/tasks.rst, core-concepts/sensors.rst]
+  - question: "Where should I look when a task fails for an obscure reason?"
+    expect: [troubleshooting.rst, faq.rst]
+  - question: "How do I change the number of shuffle partitions in Spark?"
+    expect: [sql-performance-tuning.md]
+  - question: "How do I set the executor memory in Spark?"
+    expect: [configuration.md]
+  - question: "How do I monitor a running Spark application?"
+    expect: [web-ui.md, monitoring.md]
+  - question: "An Airflow task that runs spark-submit fails intermittently. Which retry and failure settings should I check?"
+    expect: [core-concepts/tasks.rst, configuration.md]
+  - question: "What is the Snowflake credit cost?"
+    expect: []
+  - question: "How do I tune PostgreSQL autovacuum?"
+    expect: []
+  - question: "Why did my task fail with no logs in the UI?"
+    expect: [faq.rst]
+  - question: "How do I limit how many tasks run at the same time using pools?"
+    expect: [pools.rst]
+  - question: "How do I run a task even when an upstream task failed?"
+    expect: [core-concepts/dags.rst]
+  - question: "How do I enable dynamic allocation of executors in Spark?"
+    expect: [configuration.md, job-scheduling.md]
+  - question: "How many times does Spark retry a failed task?"
+    expect: [configuration.md]
+  - question: "How do I submit a Spark application to YARN in cluster mode?"
+    expect: [running-on-yarn.md, submitting-applications.md]
+  - question: "How do I enable adaptive query execution in Spark?"
+    expect: [sql-performance-tuning.md]
+  - question: "My Airflow task running a Spark driver keeps getting killed for running out of memory. What should I check?"
+    expect: [troubleshooting.rst, configuration.md]
+  - question: "How do I define an incremental model in dbt?"
+    expect: []
+  - question: "What does a Databricks cluster cost per hour?"
+    expect: []
+  - question: "How do I configure Redshift workload management queues?"
+    expect: []
+
+agent:
+  max_tool_calls: 8          # the step cap: at most this many tool calls in the evidence loop
+  tool_retries: 1            # a tool that raises an error is tried once more, then the run carries on without it
+  # Configuration keys a person has pre-approved for a future fix agent to change on its own. This is only a
+  # signal in the ticket: every change still needs a human's approval.
+  allowlisted_config_keys: [retries, retry_delay, execution_timeout, timeout, poke_interval, mode, task_queued_timeout, worker_memory_limit, spark.executor.memoryOverhead, spark.executor.memory, spark.sql.shuffle.partitions]
+  min_agreeing_sources: 2    # a ticket needs at least this many different kinds of evidence (log, docs, code, schema, commit)
+
+watcher:
+  poll_seconds: 5            # how often the watcher looks for new failures
+  max_concurrent_runs: 2     # the worker never has more runs than this in progress
+  stale_run_seconds: 900     # a run still marked running this long after it started is treated as crashed

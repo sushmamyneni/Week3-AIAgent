@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-10",
+  "system": "airflow",
+  "dag_id": "customer_segments_refresh",
+  "run_id": "scheduled__2026-10-22T03:00:00+00:00",
+  "task_id": "refresh_segments",
+  "state": "failed",
+  "failed_at": "2026-10-22T03:00:19Z"
+}

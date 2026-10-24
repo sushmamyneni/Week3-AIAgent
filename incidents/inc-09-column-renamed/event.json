@@ -1,0 +1,7 @@
+{
+  "incident_id": "inc-09",
+  "system": "airflow",
+  "dag_id": "marketing_export",
+  "state": "failed",
+  "failed_at": "2026-10-19T07:02:14Z"
+}

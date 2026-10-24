@@ -1,0 +1,24 @@
+{
+  "incident_id": "inc-12",
+  "kind": "out_of_scope",
+  "expected_action": "escalate",
+  "root_cause_keywords": [
+    "statement timeout",
+    "dead tuples",
+    "autovacuum",
+    "bloat"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "log",
+      "ref": "QueryCanceled after 120 s; orders_archive 41.2% dead tuples; last autovacuum 19 days ago"
+    }
+  ],
+  "expected_target": null,
+  "expected_owner": null,
+  "traps": [
+    "The root cause is table bloat from autovacuum falling behind; tuning PostgreSQL autovacuum is not covered by the Airflow and Spark docs.",
+    "Code search finds sql/health_check.sql: it only reports bloat, it does not configure autovacuum.",
+    "The agent must escalate with what it found, not invent autovacuum settings."
+  ]
+}

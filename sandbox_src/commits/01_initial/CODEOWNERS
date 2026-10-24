@@ -1,0 +1,17 @@
+# Path ownership. A ticket for a change in a path goes to that path's owner.
+/dags/orders_*                     @acme/orders-team
+/dags/daily_sales_report.py        @acme/finance-data
+/dags/finance_snowflake_sync.py    @acme/finance-data
+/dags/inventory_refresh.py         @acme/supply-chain-data
+/dags/supplier_feed_ingest.py      @acme/supply-chain-data
+/dags/marketing_export.py          @acme/marketing-data
+/dags/customer_segments_refresh.py @acme/marketing-data
+/dags/ops_health_check.py          @acme/data-platform
+/dags/resources.yaml               @acme/data-platform
+/sql/orders_*                      @acme/orders-team
+/sql/marketing_*                   @acme/marketing-data
+/sql/customer_segments*            @acme/marketing-data
+/sql/health_check.sql              @acme/data-platform
+/spark_jobs/                       @acme/analytics-engineering
+/migrations/                       @acme/data-platform
+/config/                           @acme/data-platform

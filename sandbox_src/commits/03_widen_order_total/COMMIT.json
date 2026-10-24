@@ -1,0 +1,5 @@
+{
+  "message": "Widen orders.total to NUMERIC(12,2)",
+  "author": "Marcus Lee <marcus.lee@acme.example>",
+  "date": "2026-10-18T09:40:00+00:00"
+}

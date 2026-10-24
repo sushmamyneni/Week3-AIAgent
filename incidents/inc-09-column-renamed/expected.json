@@ -1,0 +1,43 @@
+{
+  "incident_id": "inc-09",
+  "kind": "enterprise",
+  "expected_action": "code_change",
+  "root_cause_keywords": [
+    "UndefinedColumn",
+    "cust_email",
+    "email",
+    "renamed",
+    "0042"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "log",
+      "ref": "column c.cust_email does not exist at LINE 4 of sql/marketing_export.sql"
+    },
+    {
+      "kind": "schema",
+      "ref": "customers.cust_email renamed to email, migration 0042, 2026-10-14"
+    },
+    {
+      "kind": "commit",
+      "ref": "Rename customers.cust_email to email (2026-10-14)"
+    },
+    {
+      "kind": "code",
+      "ref": "sql/marketing_export.sql:4 c.cust_email"
+    }
+  ],
+  "expected_target": {
+    "file": "sql/marketing_export.sql",
+    "line": 4,
+    "key": "cust_email",
+    "old_value": "c.cust_email",
+    "new_value": "c.email"
+  },
+  "expected_owner": "@acme/marketing-data",
+  "traps": [
+    "The event is thin: only the DAG name and a time.",
+    "The rename was merged 5 days before this weekly run, which is why it only failed now.",
+    "The docs do not explain this failure: the answer is in the schema history and the code."
+  ]
+}

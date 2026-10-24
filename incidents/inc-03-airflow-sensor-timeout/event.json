@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-03",
+  "system": "airflow",
+  "dag_id": "supplier_feed_ingest",
+  "run_id": "scheduled__2026-10-22T01:00:00+00:00",
+  "task_id": "wait_for_supplier_file",
+  "state": "failed",
+  "failed_at": "2026-10-22T01:01:42Z"
+}

@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-04",
+  "system": "airflow",
+  "dag_id": "inventory_refresh",
+  "run_id": "scheduled__2026-10-22T04:00:00+00:00",
+  "task_id": "publish_inventory",
+  "state": "failed",
+  "failed_at": "2026-10-22T04:30:53Z"
+}

@@ -1,0 +1,29 @@
+{
+  "incident_id": "inc-07",
+  "kind": "docs",
+  "expected_action": "retry",
+  "root_cause_keywords": [
+    "lost node",
+    "decommissioned",
+    "spot",
+    "executor failures",
+    "-100"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "doc",
+      "ref": "configuration.md > Scheduling (spark.task.maxFailures, spark.excludeOnFailure.*)"
+    },
+    {
+      "kind": "log",
+      "ref": "node ip-10-0-3-44 decommissioned (spot instance reclaimed); containers released on a lost node"
+    }
+  ],
+  "expected_target": null,
+  "expected_owner": null,
+  "traps": [
+    "Many executors failed at once, all on one node: this is infrastructure, not job configuration.",
+    "A ticket to change memory or partition settings would be wrong; a retry is the right action.",
+    "If a retry tool is not built, the acceptable fallback is to escalate."
+  ]
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Failure-triage agent: architecture</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1200px; padding: 0 1rem; color: #1f2933; background: #ffffff; line-height: 1.55; }
+  h1 { font-size: 1.8rem; } h2 { margin-top: 2rem; border-bottom: 1px solid #d9dee3; padding-bottom: 0.2rem; } h3 { margin-top: 1.5rem; }
+  pre { background: #f4f6f8; border: 1px solid #d9dee3; border-radius: 8px; padding: 0.9rem 1rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.35; }
+  code { background: #f0f3f6; padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.9em; }
+  pre code { background: none; padding: 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; margin: 0.8rem 0; font-size: 0.92rem; }
+  th, td { border: 1px solid #d9dee3; padding: 0.4rem 0.7rem; text-align: left; vertical-align: top; }
+  th { background: #e8eef7; }
+  .diagram { overflow-x: auto; border: 1px solid #d9dee3; border-radius: 8px; padding: 1rem; margin: 1rem 0; background: #ffffff; }
+  .diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .error { color: #b00020; white-space: pre-wrap; }
+  .note { color: #52606d; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<p class="note">Generated from architecture.md. The Mermaid diagram is drawn by a library loaded from a CDN, so it needs internet access.</p>
+<h1>Architecture: Pipeline failure-triage agent</h1>
+<p>An agent that starts <strong>on its own when an Airflow DAG run or a Spark job fails</strong>. It finds the failed run, reads its log and settings, checks the cause against the official docs and past incidents, and proposes a cited fix. It never writes anything without a human's approval, and it hands off to a human when the docs do not cover the failure.</p>
+<p>It builds on the Week 2 docs assistant: the Week 2 hybrid search becomes one of the agent's tools. The docs explain what an error means; for a failure caused by something company-specific, the agent also reads the company's <strong>code, database schemas and git history</strong> (section 8).</p>
+<p>Decisions so far: a <strong>poller</strong> detects failures first, an Airflow <strong>webhook</strong> is a second path if time allows; notification is a <strong>simulated outbox plus an approval inbox page</strong> (email if time allows); failures are <strong>simulated</strong> for now, and a real Airflow comes later.</p>
+<hr>
+<h2>1. System architecture</h2>
+<h3>1a. Trigger layer: how a failure starts the agent</h3>
+<pre> FAILURE SOURCES                 TRIGGER LAYER                              HUMAN
+ ---------------                 -------------                              -----
+ Failure simulator --adds a--&gt; Failure source (fixtures)
+ (demo)              failure        ^
+                                    | polls every N seconds
+ Real Airflow and Spark ......&gt; WATCHER ----------+
+ (later)                                          |
+ Airflow on_failure_callback -&gt; WEBHOOK ----------+--&gt; INCIDENT QUEUE --&gt; AGENT RUNNER
+ (second path, if time)                               (SQLite: new,        (one agent run per
+                                                       running,             new failure)
+                                                       awaiting approval,        |
+                                                       done, escalated)          |
+                                                                                 v
+ Engineer &lt;--notification-- NOTIFICATION OUTBOX &lt;--- run pauses at the approval gate
+     |                                                                           ^
+     +--approve / edit / reject--&gt; STREAMLIT APPROVAL INBOX --resumes the run----+</pre>
+<ul><li><strong>Watcher:</strong> a polling loop over a failure source. It remembers which runs it has processed, so one failure starts exactly one agent run. It works for Spark and Airflow alike and is the safety net for the webhook.</li><li><strong>Webhook receiver (second path):</strong> a small FastAPI endpoint. Airflow's <code>on_failure_callback</code> (documented for a DAG or a task, called with a <code>context</code> mapping) posts the DAG id, run id and task key to it.</li><li><strong>Incident queue:</strong> a SQLite table, one row per failure, with a state: <code>new</code>, <code>running</code>, <code>awaiting_approval</code>, <code>done</code>, <code>escalated</code>, <code>failed</code>.</li><li><strong>Agent runner:</strong> takes the next <code>new</code> incident and runs the graph with a structured event (system, DAG or application id, run id, time).</li><li><strong>Notification outbox and approval inbox:</strong> when a run reaches the approval gate it saves its state, writes a notification (a simulated Slack message in an outbox folder), and appears in the Streamlit inbox. The engineer approves, edits or rejects there, and the run resumes from where it paused, even much later.</li></ul>
+<h3>1b. Agent, tools, and stores</h3>
+<pre>                    +------------------------------------+
+  Agent runner ---&gt; |  AGENT (LangGraph state machine)   |--traces--&gt; LangSmith
+                    |  state kept by SQLite checkpointer |
+                    +----+-------------------+-----------+
+                         | decides           | calls
+                         v                   v
+                  Chat model            TOOLS (6 core, read-only unless noted)
+                  Qwen3-235B            get_failure_log    -&gt; failure source (trimmed, redacted)
+                  (Nebius)              search_docs        -&gt; Pinecone docs-v1 + BM25   (Week 2)
+                                        search_code        -&gt; sandbox repo: code, SQL, migrations
+                                        get_table_schema   -&gt; schema store: current + history
+                                        git_history        -&gt; sandbox repo: log and diff
+                                        create_ticket      -&gt; WRITE, needs approval
+                                        optional: retry_failed_task (WRITE, needs approval),
+                                                  find_similar_incidents (past incidents)
+
+  Stores:  failure source (fixtures) | Pinecone airflow-spark-rag (docs-v1 read-only,
+           incidents-v1 optional memory) | chunks.jsonl (BM25) | sandbox repo and
+           schema store (synthetic "enterprise") | tickets folder | SQLite checkpointer</pre>
+<p>Design points:</p>
+<ul><li>The <strong>failure source</strong> sits behind a small interface. The simulator writes fixture failures into it now; later it can be replaced by the Airflow REST API (<code>/api/v2</code>) and the Spark history server (applications, then jobs and stages with <code>?status=failed</code>, per the Spark <code>monitoring.md</code>). A failed Spark application is found through its failed jobs or stages, because the applications filter only offers <code>completed</code> and <code>running</code>.</li><li>The only <strong>write</strong> is <code>create_ticket</code>, simulated by writing a file, so nothing real can be changed. Saving an incident to memory happens only after a human approves.</li><li>The <strong>sandbox</strong> is a small synthetic "enterprise": a local git repo of DAG, SQL, Spark and migration files with a real history, plus a schema store with every table's versions. The agent reads <strong>schemas only, never table rows</strong>.</li><li><code>docs-v1</code> is the Week 2 namespace and is <strong>read-only</strong> here. New memory goes in a separate namespace, <code>incidents-v1</code>, in the same index (dimension 384, same embedding model).</li></ul>
+<h2>2. Workflow (the explicit steps)</h2>
+<pre>A job fails (or the simulator adds a failure)
+  |
+  v
+[Trigger]  the watcher sees a new failed run (or the webhook receives one)
+  |        deduplicate on (system, run id) -&gt; incident queue -&gt; agent runner
+  v
+[Intake]  read the event: which system, which run, when  (asks for more only if the event is incomplete)
+  |
+  v
+[Triage]  fetch the failed run, Airflow or Spark, failure type
+  |
+  v
+[Gather evidence] &lt;---------------------+   loop, max 8 tool calls
+  | log, docs, code, schema, git history|   tool error: retry once, carry on, note it
+  v                                     |
+ enough evidence? --- no, need more ----+
+  | yes (or step cap reached)
+  v
+ enough support?  (docs relevance &gt;= threshold, or code and schema evidence, or a similar past incident)
+  |-- no --&gt; [Escalate to human] --&gt; notification --&gt; END   (hand-off note: what was found)
+  | yes
+  v
+[Diagnose]  cause + evidence + cited fix  (answerable? citation check)
+  |-- not answerable --&gt; [Escalate] --&gt; END
+  v
+[Choose action]  transient failure -&gt; retry | configuration problem -&gt; ticket with the exact change
+  |
+  v
+[APPROVAL GATE]  run PAUSES, state saved, notification sent, incident = awaiting_approval
+  |   the engineer decides in the inbox: approve / edit / reject
+  |-- reject --&gt; END   (nothing written)
+  | approve  (run resumes)
+  v
+[Act]  retry_failed_task or create_ticket  (+ save the incident to memory, if built)
+  |
+  v
+[Summary] --&gt; END</pre>
+<h3>What triggers the agent</h3>
+<p>Nobody types an alert. The trigger is the failure itself:</p>
+<div class='scroll'><table><thead><tr><th>Trigger</th><th>How it works</th><th>Status</th></tr></thead><tbody><tr><td><strong>Watcher (polling)</strong></td><td>Every N seconds it lists failed runs in the failure source and queues any it has not seen</td><td><strong>Build first</strong> (works for Airflow, Spark, and the simulator)</td></tr><tr><td><strong>Webhook (push)</strong></td><td>Airflow's <code>on_failure_callback</code> posts the failed run to an endpoint</td><td>Second path, if time allows</td></tr><tr><td><strong>Failure simulator</strong></td><td>A script makes a fixture job "fail" at a moment you choose, by adding the failure and its log to the failure source</td><td><strong>Demo and evaluation</strong> (no live Airflow or Spark exists yet)</td></tr><tr><td>Real Airflow and Spark</td><td>The same adapters, pointed at the real APIs</td><td>Later</td></tr><tr><td>Manual CLI run</td><td>A developer starts an agent run by hand</td><td>Debugging only</td></tr></tbody></table></div>
+<p>Intake now receives a structured event, not free text. A complete event goes straight to the failed run; a thin one (only a DAG name) makes intake call the <code>list_failed_runs</code> helper to find the run.</p>
+<h3>Failure behavior</h3>
+<div class='scroll'><table><thead><tr><th>Situation</th><th>What the system does</th></tr></thead><tbody><tr><td>A tool raises an error</td><td>Retry once, then continue without it and say so in the result</td></tr><tr><td>A search returns nothing useful</td><td>One reworded query, then escalate</td></tr><tr><td>The log is missing</td><td>Mark the incident and escalate with what is known</td></tr><tr><td>The step cap (8 tool calls) is reached</td><td>Escalate with what has been found</td></tr><tr><td>A log contains instructions ("ignore your rules")</td><td>Treated as data, ignored, and flagged</td></tr><tr><td>A log contains secrets</td><td>Redacted before the model sees it</td></tr><tr><td>The same failure is reported twice</td><td>Ignored (deduplicated on system and run id)</td></tr><tr><td>A burst of failures</td><td>A cap on concurrent agent runs; the rest wait as <code>new</code>; failures from one DAG are grouped</td></tr><tr><td>The agent run crashes</td><td>Incident marked <code>failed</code>, a notification says so, nothing is written, and it can be queued again</td></tr><tr><td>The watcher cannot reach the failure source</td><td>Log it, back off, keep polling; no incident is lost</td></tr></tbody></table></div>
+<h2>3. Diagrams (Mermaid)</h2>
+<p>The same architecture as three small Mermaid diagrams, so each is readable on a page. They render in the VS Code Markdown preview with the Mermaid extension, and on GitHub.</p>
+<h3>3a. Trigger layer: how a failure starts the agent</h3>
+<div class="diagram" id="m0">Loading diagram...</div>
+<h3>3b. Agent workflow: the explicit steps</h3>
+<div class="diagram" id="m1">Loading diagram...</div>
+<h3>3c. Tools and stores</h3>
+<div class="diagram" id="m2">Loading diagram...</div>
+<h2>4. Components and what they do</h2>
+<div class='scroll'><table><thead><tr><th>Component</th><th>Role</th><th>New or reused</th></tr></thead><tbody><tr><td>Failure simulator</td><td>A script that makes a fixture job fail at a chosen moment</td><td>New</td></tr><tr><td>Failure source (fixtures)</td><td>10 in-scope and 2 out-of-scope incidents with logs and settings, labelled synthetic; behind an interface that real Airflow and Spark can replace later</td><td>New</td></tr><tr><td>Watcher</td><td>Polls the failure source and queues each new failed run once</td><td>New</td></tr><tr><td>Webhook receiver</td><td>Receives Airflow failure callbacks (second path, if time)</td><td>New, optional</td></tr><tr><td>Incident queue</td><td>SQLite table of incidents and their states</td><td>New</td></tr><tr><td>Agent runner</td><td>Starts one agent run per new incident, with a cap on concurrent runs</td><td>New</td></tr><tr><td>LangGraph graph</td><td>The explicit steps, the loop and its step cap, and the approval interrupt</td><td>New</td></tr><tr><td>SQLite checkpointer</td><td>Keeps the state of each incident, so a paused run can be resumed later</td><td>New</td></tr><tr><td>Chat model (Qwen3-235B, Nebius)</td><td>Decides the next action and writes the diagnosis</td><td>Reused (tool calling to be tested)</td></tr><tr><td><code>search_docs</code></td><td>The Week 2 hybrid search (dense plus BM25, rank fusion) over the Airflow and Spark docs</td><td>Reused (copied)</td></tr><tr><td><code>find_similar_incidents</code></td><td>The same kind of search over past approved incidents (<code>incidents-v1</code>)</td><td>New, optional</td></tr><tr><td><code>get_failure_log</code> (and the intake helper <code>list_failed_runs</code>)</td><td>Read the failure source; the log is trimmed and secrets redacted</td><td>New</td></tr><tr><td><code>search_code</code></td><td>BM25 and exact search over the sandbox repository, chunked by function and SQL statement</td><td>New</td></tr><tr><td><code>get_table_schema</code></td><td>Current columns and types of a table, and its version history; schemas only, never rows</td><td>New</td></tr><tr><td><code>git_history</code></td><td><code>git log</code> and <code>git diff</code> for a path or a date range, trimmed</td><td>New</td></tr><tr><td><code>create_ticket</code></td><td>A write: saves a structured ticket (section 6) with the exact change and the owner from <code>CODEOWNERS</code>; asks for approval first</td><td>New</td></tr><tr><td><code>retry_failed_task</code></td><td>A write: marks a failed run as retried in the failure source; asks for approval first</td><td>New</td></tr><tr><td>Notification outbox</td><td>Simulated Slack message written to a folder when a run needs a human (email if time allows)</td><td>New</td></tr><tr><td>Streamlit approval inbox</td><td>Lists incidents awaiting approval, shows the diagnosis and cited sources, and has Approve, Edit and Reject</td><td>Streamlit reused from Week 2; the page is new</td></tr><tr><td>LangSmith</td><td>Tracing each run and recording evaluations</td><td>New</td></tr><tr><td>Sandbox repository</td><td>A synthetic local git repo of DAG, SQL, Spark and migration files, rebuilt by a script and kept out of the Week 3 repository</td><td>New</td></tr><tr><td>Schema store</td><td>A JSON file (or SQLite) of tables, columns, types and every schema version</td><td>New</td></tr></tbody></table></div>
+<h2>5. Roles and responsibilities</h2>
+<p><strong>The agent is responsible for:</strong> triage (which run, which system, what kind of failure); gathering evidence by choosing which tools to call; a diagnosis with every claim cited; choosing and drafting an action; saying "I can't tell" and escalating; and reporting honestly what it checked, what it could not, and which tools failed.</p>
+<p><strong>The agent must not:</strong> fix, restart or re-run anything without approval; change code or configuration in a real system; read table rows (schemas only); answer from outside its knowledge sources; decide on its own that a write is safe; touch production credentials.</p>
+<div class='scroll'><table><thead><tr><th>Decision</th><th>Who</th><th>Why</th></tr></thead><tbody><tr><td>Which tool to call next, when the evidence is enough, the wording of the diagnosis, which action fits</td><td><strong>The AI model</strong></td><td>This is the judgment part</td></tr><tr><td>One failure starts one run, the step cap, concurrency limits, redacting secrets, trimming logs, the allowlist of change types</td><td><strong>Plain code</strong></td><td>Rules that must hold every time</td></tr><tr><td>Whether a write needs approval</td><td><strong>Plain code</strong> (always yes)</td><td>The model cannot talk its way past it</td></tr><tr><td>Whether the docs cover the failure</td><td><strong>Plain code</strong> (a score threshold) first, then the model</td><td>The Week 2 pattern</td></tr><tr><td>Approve, edit or reject an action</td><td><strong>A human</strong></td><td>Anything that changes something is a human's call</td></tr><tr><td>What to do with an escalated failure</td><td><strong>A human</strong></td><td>The agent only hands over what it found</td></tr></tbody></table></div>
+<div class='scroll'><table><thead><tr><th>Action</th><th>Autonomy</th></tr></thead><tbody><tr><td>Read logs, settings, docs, past incidents</td><td>Autonomous</td></tr><tr><td>Reword and repeat a search</td><td>Autonomous, once</td></tr><tr><td>Draft a ticket</td><td>Autonomous (it is only text)</td></tr><tr><td>Create the ticket, retry a task</td><td><strong>Needs approval</strong></td></tr><tr><td>Save an incident to memory (optional)</td><td><strong>Needs approval</strong></td></tr><tr><td>Anything on a real system</td><td><strong>Not allowed</strong> in this project</td></tr></tbody></table></div>
+<h2>6. Action policy and the ticket contract</h2>
+<p>The agent chooses the action by failure type. "Confidence" is not a number the model reports; it is made of signals the code can check (the best retrieval score, how many independent sources agree, whether the change type is on an allowlist, whether the change validates, and the size of the change). The signals go in the ticket and decide the *kind* of output; they never remove the human's approval.</p>
+<div class='scroll'><table><thead><tr><th>What the evidence points to</th><th>Proposed action (needs approval)</th></tr></thead><tbody><tr><td>A transient failure (executor lost, a flaky connection, retries not yet exhausted)</td><td><code>retry_failed_task</code></td></tr><tr><td>A configuration problem the docs explain, or a code or schema mismatch found in the repository</td><td><code>create_ticket</code> carrying the exact change: file, line, old and new code or value, and the owner from <code>CODEOWNERS</code></td></tr><tr><td>Unclear, conflicting, or out of scope</td><td>Escalate: report what was found, no write</td></tr></tbody></table></div>
+<p>The ticket is a structured record (a Pydantic model), so a second agent can later read fields instead of interpreting prose:</p>
+<pre>{
+  "ticket_id": "...",  "incident_id": "...",  "system": "airflow | spark",
+  "run": {"dag_or_app": "...", "run_id": "...", "task": "...", "failed_at": "..."},
+  "root_cause": "one or two sentences",
+  "evidence": [{"kind": "log | doc | code | schema | commit | incident", "ref": "...", "quote": "...",
+                "citation": "docs path &gt; heading, or repo path:line, or commit id"}],
+  "proposed_action": {"type": "retry | code_change | config_change | escalate", "target": {"file": "...", "line": 0, "key": "..."},
+                      "old_value": "...", "new_value": "...", "bounds": "allowed range"},
+  "confidence_signals": {"best_doc_score": 0.0, "sources_agreeing": 0, "similar_past_incident": false,
+                         "change_allowlisted": false, "validation": "passed | failed | not_run"},
+  "constraints": ["never touch the main branch", "never act on a real system"],
+  "status": "draft | approved | fix_in_progress | pr_opened | merged | rejected",
+  "owner": "from CODEOWNERS",  "approved_by": null,  "created_at": "..."
+}</pre>
+<h2>7. Future: multi-agent</h2>
+<p>The ticket is the interface between two agents that never call each other and read from a shared queue. Each gets only the permissions it needs, and humans approve at two points: the ticket, and the pull request.</p>
+<div class="diagram" id="m3">Loading diagram...</div>
+<ul><li><strong>Built in Week 3:</strong> the triage agent, the incident queue and ticket states, tools as standalone functions, and the structured ticket.</li><li><strong>Later:</strong> the fix agent, a sandbox repository and then a real GitHub pull request, and an optional reviewer agent.</li><li><strong>Rule for the fix agent:</strong> validate a ticket against its schema and an allowlist before acting. A log can carry a hidden instruction into a ticket, so ticket text is never trusted as an order.</li><li><strong>Harder later:</strong> ticket quality, limiting bounces between agents, evaluating the whole chain, cost and time.</li></ul>
+<h2>8. Enterprise knowledge: code, schema, and change history</h2>
+<p>The docs explain what an error *means*. When the cause is company-specific, the fix is in the company's own code, schemas and history. Example: a column's type changes and a DAG that still assumes the old type fails. No document says that, so the agent joins three facts: the failing task, the schema change, and the code that depends on it.</p>
+<pre>DAG fails: "invalid input syntax for type integer: 'N/A'"   (loading orders.customer_zip)
+   |
+   v
+get_failure_log      -&gt; table orders, column customer_zip, the failing task
+search_docs          -&gt; what this error class means                          (Week 2 search)
+get_table_schema     -&gt; customer_zip is now VARCHAR(10); it was INTEGER, changed on &lt;date&gt;
+git_history          -&gt; migration 0042 changed the type, merged 2 days ago
+search_code          -&gt; the DAG task and the SQL line that still cast it to INTEGER
+   |
+   v
+Diagnosis: the column type changed and orders_load still assumes INTEGER.
+Ticket (needs approval): the exact file and line, the old and the new handling,
+the owner from CODEOWNERS, and every piece of evidence cited.</pre>
+<div class='scroll'><table><thead><tr><th>Source</th><th>How it is accessed</th><th>Method</th></tr></thead><tbody><tr><td>Docs</td><td>The Week 2 hybrid search (<code>search_docs</code>)</td><td>RAG</td></tr><tr><td>Code (DAGs, SQL, Spark jobs)</td><td><code>search_code</code>: BM25 and exact search over chunks cut by function or SQL statement, with the repo, path, language and the table and column names each chunk mentions</td><td>Exact search plus retrieval (identifiers like <code>customer_zip</code> need an exact match)</td></tr><tr><td>Database schema</td><td><code>get_table_schema</code>: the current columns and types, and the history of versions</td><td>Direct lookup, schema only, never rows</td></tr><tr><td>Change history</td><td><code>git_history</code>: <code>git log</code> and <code>git diff</code> of a path or since a date, trimmed</td><td>Direct lookup</td></tr><tr><td>Ownership</td><td><code>CODEOWNERS</code>, to route the ticket</td><td>Lookup</td></tr><tr><td>Past incidents</td><td><code>find_similar_incidents</code> (optional)</td><td>RAG</td></tr></tbody></table></div>
+<p>Concerns to design for, and to state in the project document:</p>
+<ul><li><strong>Read-only access</strong> limited to the allowlisted repositories and schemas, with an audit log.</li><li><strong>No table rows</strong>: they can hold personal data.</li><li><strong>Code and comments are untrusted text</strong> and can carry a hidden instruction, like a log.</li><li><strong>Code and schemas would be sent to the model provider</strong> (Nebius here). Many companies cannot allow this without an approved or self-hosted model.</li><li><strong>Freshness:</strong> re-index code when it changes, or search the live checkout.</li></ul>
+<p>The demo uses a <strong>synthetic sandbox</strong> (a small repository with a real git history, rebuilt by a script, and a schema store) with three enterprise incidents:</p>
+<div class='scroll'><table><thead><tr><th>Incident</th><th>What the agent must find</th><th>Proposed action</th></tr></thead><tbody><tr><td>A column's type changed from integer to text and the load step still casts it to integer</td><td>The type change in the schema history and the migration commit, and the DAG and SQL line that still assumes the old type</td><td>Ticket with the exact line and the new handling</td></tr><tr><td>A column was renamed and a query still uses the old name</td><td>The rename in the schema history and migration, and the query that still uses it</td><td>Ticket with the exact query change</td></tr><tr><td>A job fails with a permission error after a migration created a new table</td><td>The migration that created the table, and the missing grant</td><td>Ticket for the owning team</td></tr></tbody></table></div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+const sources = ["flowchart TB\n    SIM[\"Failure simulator<br/>demo: adds a fixture failure\"] --> FIX[(\"Failure source<br/>fixtures: Airflow and Spark logs\")]\n    REAL[\"Real Airflow and Spark<br/>later\"] -. API .-> WT\n    REAL -. on_failure_callback .-> WH\n    WT[\"Watcher<br/>polls every N seconds\"] -- polls --> FIX\n    WH[\"Webhook receiver<br/>second path, if time\"]\n    WT --> Q[(\"Incident queue<br/>SQLite: new, running,<br/>awaiting approval, done\")]\n    WH --> Q\n    Q --> RUN[\"Agent runner<br/>one run per new failure\"] --> AG[\"Agent<br/>LangGraph\"]\n    AG -. pauses and notifies .-> OUTB[/\"Notification outbox<br/>simulated Slack or email\"/]\n    INB[\"Streamlit approval inbox\"] -- approve or reject, run resumes --> AG", "flowchart TB\n    EV[\"Failure event<br/>from the runner\"] --> N1[\"Intake\"] --> N2[\"Triage\"] --> N3[\"Gather evidence<br/>logs, docs, code, schema, git<br/>tool loop, max 8 calls\"]\n    N3 --> N4[\"Diagnose<br/>cited fix\"] --> N5[\"Choose action<br/>retry or ticket\"] --> N6{\"Approval gate<br/>run pauses\"}\n    N6 -- approve --> N7[\"Act<br/>retry or ticket\"] --> N8[\"Summary\"]\n    N6 -- reject --> N9[\"End, nothing written\"]\n    N3 -. weak evidence .-> ESC[\"Escalate to human\"]\n    N4 -. not answerable .-> ESC\n    LLM[\"Qwen3-235B on Nebius<br/>decides and writes\"] <--> N3\n    N6 -. notifies .-> OUTB[/\"Notification outbox\"/]\n    ESC -. notifies .-> OUTB\n    INB[\"Streamlit approval inbox\"] -- approve or reject, run resumes --> N6", "flowchart LR\n    AG[\"Agent<br/>LangGraph\"]\n    AG --> T1[\"get_failure_log<br/>read\"]\n    AG --> T2[\"search_docs<br/>read\"]\n    AG --> T3[\"search_code<br/>read\"]\n    AG --> T4[\"get_table_schema<br/>read\"]\n    AG --> T5[\"git_history<br/>read\"]\n    AG --> T6[\"create_ticket<br/>WRITE, needs approval\"]\n    AG -.-> T7[\"retry_failed_task<br/>WRITE, optional\"]\n    AG -.-> T8[\"find_similar_incidents<br/>read, optional\"]\n    T1 --> FIX[(\"Failure source<br/>fixtures\")]\n    T2 --> PCD[(\"Pinecone docs-v1<br/>read-only, from Week 2\")]\n    T2 --> BM[/\"chunks.jsonl<br/>BM25 keyword search\"/]\n    T3 --> REPO[(\"Sandbox repo<br/>code, SQL, migrations, git\")]\n    T4 --> SCH[(\"Schema store<br/>tables, columns, history\")]\n    T5 --> REPO\n    T6 --> OUT[/\"tickets folder<br/>structured tickets\"/]\n    T7 -.-> FIX\n    T8 -.-> PCI[(\"Pinecone incidents-v1<br/>past incidents\")]\n    AG --> CK[(\"SQLite checkpointer<br/>session state\")]\n    AG -. traces .-> LS[\"LangSmith<br/>traces and evals\"]", "flowchart TB\n    F[\"Job failure\"] --> TA[\"Triage agent<br/>read-only tools and create_ticket\"]\n    TA --> TK[(\"Structured ticket<br/>the contract\")]\n    TK -- human approves --> FA[\"Fix agent<br/>edits a branch, validates, opens a PR<br/>cannot merge or create tickets\"]\n    FA --> PR[\"Pull request\"]\n    PR -- human reviews and merges --> MG[\"Merged change\"]\n    RV[\"Optional reviewer agent<br/>checks the diff against the ticket and an allowlist\"] -.-> FA"];
+mermaid.initialize({ startOnLoad: false, securityLevel: "strict", flowchart: { useMaxWidth: true } });
+sources.forEach(async (source, n) => {
+  const box = document.getElementById("m" + n);
+  try { const { svg } = await mermaid.render("svg-m" + n, source); box.innerHTML = svg; }
+  catch (err) { box.innerHTML = '<div class="error">Mermaid could not draw this diagram:\n' + String(err.message || err) + "</div>"; }
+});
+</script>
+</body>
+</html>

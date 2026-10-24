@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-01",
+  "system": "airflow",
+  "dag_id": "inventory_refresh",
+  "run_id": "scheduled__2026-10-21T04:00:00+00:00",
+  "task_id": "build_inventory_snapshot",
+  "state": "failed",
+  "failed_at": "2026-10-21T04:51:16Z"
+}

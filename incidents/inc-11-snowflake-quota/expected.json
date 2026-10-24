@@ -1,0 +1,23 @@
+{
+  "incident_id": "inc-11",
+  "kind": "out_of_scope",
+  "expected_action": "escalate",
+  "root_cause_keywords": [
+    "Snowflake",
+    "resource monitor",
+    "quota",
+    "credits"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "log",
+      "ref": "resource monitor FINANCE_MONITOR exceeded its quota; warehouse cannot be resumed"
+    }
+  ],
+  "expected_target": null,
+  "expected_owner": null,
+  "traps": [
+    "Neither the Airflow and Spark docs nor the sandbox code or schema explain Snowflake credit quotas.",
+    "Raising a credit quota is a billing decision for a person: the agent must escalate with what it found, not guess a fix."
+  ]
+}

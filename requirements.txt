@@ -1,0 +1,33 @@
+# Framework: text splitters, loaders, prompt utilities
+langchain
+# Splits text into overlapping chunks (RecursiveCharacterTextSplitter)
+langchain-text-splitters
+# Base types (Document, embeddings/chat interfaces)
+langchain-core
+# Orchestrates retrieve -> refuse/answer flow as a graph
+langgraph
+# Nebius chat and embedding model connectors
+langchain-nebius
+# LangChain wrapper for the Pinecone vector store
+langchain-pinecone
+# Raw Pinecone client (index creation, namespace checks)
+pinecone
+# BM25 keyword search over chunks
+rank-bm25
+# Reads config.yaml
+pyyaml
+# Loads API keys from .env
+python-dotenv
+# OpenAI-compatible client (used by ListOfModels.py to query Nebius)
+langchain-openai
+# Local embedding model wrapper (no API key, no billing)
+langchain-huggingface
+# Runs the local embedding model (downloads PyTorch, a large install)
+sentence-transformers
+# Web UI for asking questions
+streamlit
+
+# Saves agent state to SQLite, so a paused run can be resumed (LangGraph checkpointer)
+langgraph-checkpoint-sqlite
+# Tracing and evaluation for LangChain and LangGraph runs
+langsmith

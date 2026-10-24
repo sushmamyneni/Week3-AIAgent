@@ -1,0 +1,23 @@
+[2026-10-22T02:00:02.014+0000] INFO - Starting attempt 1 of 3
+[2026-10-22T02:00:02.540+0000] INFO - Running SQL file sql/orders_load.sql on conn_id=warehouse (postgresql://etl_user:Pa55w0rd-NOT-REAL@warehouse.acme.internal:5432/analytics)
+[2026-10-22T02:00:03.118+0000] INFO - Staging rows to load: 18,441
+[2026-10-22T02:00:03.402+0000] WARNING - 312 staging rows have non-numeric customer_zip values (sample: 'K1A 0B1', 'SW1A 1AA', 'N/A')
+[2026-10-22T02:00:03.911+0000] ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/opt/airflow/dags/acme_etl/loaders.py", line 27, in run_sql_file
+    cursor.execute(sql)
+psycopg2.errors.InvalidTextRepresentation: invalid input syntax for type integer: "K1A 0B1"
+CONTEXT:  unnamed portal parameter $1
+LINE 6:     s.customer_zip::INTEGER,       -- zip codes are numbers
+            ^
+[2026-10-22T02:00:04.120+0000] INFO - Marking task as UP_FOR_RETRY. dag_id=orders_load, task_id=load_orders, run_id=scheduled__2026-10-22T02:00:00+00:00
+[2026-10-22T02:10:04.701+0000] INFO - Starting attempt 2 of 3
+[2026-10-22T02:10:06.219+0000] ERROR - Task failed with exception
+psycopg2.errors.InvalidTextRepresentation: invalid input syntax for type integer: "K1A 0B1"
+LINE 6:     s.customer_zip::INTEGER,       -- zip codes are numbers
+[2026-10-22T02:10:06.480+0000] INFO - Marking task as UP_FOR_RETRY. dag_id=orders_load, task_id=load_orders, run_id=scheduled__2026-10-22T02:00:00+00:00
+[2026-10-22T02:20:07.115+0000] INFO - Starting attempt 3 of 3
+[2026-10-22T02:21:29.610+0000] ERROR - Task failed with exception
+psycopg2.errors.InvalidTextRepresentation: invalid input syntax for type integer: "K1A 0B1"
+LINE 6:     s.customer_zip::INTEGER,       -- zip codes are numbers
+[2026-10-22T02:21:30.002+0000] INFO - Marking task as FAILED. dag_id=orders_load, task_id=load_orders, run_id=scheduled__2026-10-22T02:00:00+00:00

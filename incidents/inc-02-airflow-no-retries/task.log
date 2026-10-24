@@ -1,0 +1,14 @@
+[2026-10-21T06:00:02.331+0000] INFO - Task instance is in running state
+[2026-10-21T06:00:02.332+0000] INFO - Starting attempt 1 of 1
+[2026-10-21T06:00:02.901+0000] INFO - Fetching exchange rates for base currency USD
+[2026-10-21T06:00:02.904+0000] INFO - GET https://rates.example-provider.com/v1/latest?base=USD (api_key=fake_live_key_NOT_REAL_0000)
+[2026-10-21T06:12:08.870+0000] WARNING - Upstream responded 503 after 726s; Retry-After: 30
+[2026-10-21T06:12:09.002+0000] ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/opt/airflow/dags/acme_etl/finance.py", line 41, in fetch_rates
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/requests/models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 503 Server Error: Service Unavailable for url: https://rates.example-provider.com/v1/latest?base=USD
+[2026-10-21T06:12:09.140+0000] INFO - Marking task as FAILED. dag_id=daily_sales_report, task_id=fetch_exchange_rates, run_id=scheduled__2026-10-21T06:00:00+00:00
+[2026-10-21T06:12:09.205+0000] INFO - Downstream task build_sales_report skipped (upstream failed)

@@ -1,0 +1,13 @@
+[2026-10-22T03:00:02.114+0000] INFO - Starting attempt 1 of 2
+[2026-10-22T03:00:02.611+0000] INFO - Running SQL file sql/customer_segments.sql on conn_id=warehouse (user=etl_user)
+[2026-10-22T03:00:03.020+0000] INFO - Connected; server version 16.4
+[2026-10-22T03:00:03.488+0000] ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/opt/airflow/dags/acme_etl/loaders.py", line 27, in run_sql_file
+    cursor.execute(sql)
+psycopg2.errors.InsufficientPrivilege: permission denied for table customer_segments
+[2026-10-22T03:00:03.702+0000] INFO - Marking task as UP_FOR_RETRY. dag_id=customer_segments_refresh, task_id=refresh_segments, run_id=scheduled__2026-10-22T03:00:00+00:00
+[2026-10-22T03:00:18.390+0000] INFO - Starting attempt 2 of 2
+[2026-10-22T03:00:18.944+0000] ERROR - Task failed with exception
+psycopg2.errors.InsufficientPrivilege: permission denied for table customer_segments
+[2026-10-22T03:00:19.002+0000] INFO - Marking task as FAILED. dag_id=customer_segments_refresh, task_id=refresh_segments, run_id=scheduled__2026-10-22T03:00:00+00:00

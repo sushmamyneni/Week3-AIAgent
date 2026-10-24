@@ -1,0 +1,37 @@
+{
+  "incident_id": "inc-04",
+  "kind": "docs",
+  "expected_action": "config_change",
+  "root_cause_keywords": [
+    "queued",
+    "task_queued_timeout",
+    "600",
+    "worker slots",
+    "parallelism"
+  ],
+  "expected_evidence": [
+    {
+      "kind": "doc",
+      "ref": "troubleshooting.rst > Obscure task failures > Task state changed externally (scheduler.task_queued_timeout)"
+    },
+    {
+      "kind": "code",
+      "ref": "config/airflow.cfg:6"
+    },
+    {
+      "kind": "log",
+      "ref": "queued 612 s; all 32 worker slots busy"
+    }
+  ],
+  "expected_target": {
+    "file": "config/airflow.cfg",
+    "line": 6,
+    "key": "scheduler.task_queued_timeout"
+  },
+  "expected_owner": "@acme/data-platform",
+  "traps": [
+    "The task did not crash: the scheduler failed it because it waited too long in the queue.",
+    "The SIGTERM line is a consequence of the scheduler's action, not the cause.",
+    "The real constraint is worker capacity (parallelism = 32); raising the timeout only hides it."
+  ]
+}

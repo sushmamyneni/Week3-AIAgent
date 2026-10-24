@@ -1,0 +1,9 @@
+{
+  "incident_id": "inc-11",
+  "system": "airflow",
+  "dag_id": "finance_snowflake_sync",
+  "run_id": "scheduled__2026-10-22T08:00:00+00:00",
+  "task_id": "push_finance_summary",
+  "state": "failed",
+  "failed_at": "2026-10-22T08:03:12Z"
+}

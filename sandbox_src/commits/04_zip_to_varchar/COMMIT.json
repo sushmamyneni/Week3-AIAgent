@@ -1,0 +1,5 @@
+{
+  "message": "Store orders.customer_zip as text for international postal codes",
+  "author": "Sofia Alvarez <sofia.alvarez@acme.example>",
+  "date": "2026-10-20T11:05:00+00:00"
+}

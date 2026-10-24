@@ -1,0 +1,8 @@
+{
+  "incident_id": "inc-06",
+  "system": "spark",
+  "app_name": "sessionize_events",
+  "app_id": "application_1697812345678_0411",
+  "state": "failed",
+  "failed_at": "2026-10-21T03:47:30Z"
+}

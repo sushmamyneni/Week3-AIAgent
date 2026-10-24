@@ -1,0 +1,14 @@
+26/10/21 02:00:08 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+26/10/21 02:00:11 WARN Client: Neither spark.yarn.jars nor spark.yarn.archive is set, falling back to uploading libraries under SPARK_HOME.
+26/10/21 02:00:19 INFO SparkContext: Running Spark version 4.2.0
+26/10/21 02:00:19 INFO SparkContext: Submitted application: daily_aggregates
+26/10/21 02:00:24 INFO YarnAllocator: Will request 10 executor container(s), each with 4 core(s) and 9011 MB memory (including 819 MB of overhead)
+26/10/21 02:11:05 INFO YarnClusterScheduler: Adding task set 4.0 with 1200 tasks resource profile 0
+26/10/21 02:19:44 WARN TaskSetManager: Lost task 311.0 in stage 4.0 (TID 5207) (ip-10-0-2-17.ec2.internal executor 6): ExecutorLostFailure (executor 6 exited caused by one of the running tasks) Reason: Container killed by YARN for exceeding memory limits. 9.3 GB of 8.8 GB physical memory used. Consider boosting spark.executor.memoryOverhead.
+26/10/21 02:19:51 WARN TaskSetManager: Lost task 702.0 in stage 4.0 (TID 5410) (ip-10-0-2-31.ec2.internal executor 2): ExecutorLostFailure (executor 2 exited caused by one of the running tasks) Reason: Container killed by YARN for exceeding memory limits. 9.4 GB of 8.8 GB physical memory used. Consider boosting spark.executor.memoryOverhead.
+26/10/21 02:20:36 WARN TaskSetManager: Lost task 311.1 in stage 4.0 (TID 5533) (ip-10-0-2-40.ec2.internal executor 9): ExecutorLostFailure (executor 9 exited caused by one of the running tasks) Reason: Container killed by YARN for exceeding memory limits. 9.3 GB of 8.8 GB physical memory used. Consider boosting spark.executor.memoryOverhead.
+26/10/21 02:21:33 WARN TaskSetManager: Lost task 311.2 in stage 4.0 (TID 5661) (ip-10-0-2-17.ec2.internal executor 11): ExecutorLostFailure (executor 11 exited caused by one of the running tasks) Reason: Container killed by YARN for exceeding memory limits. 9.3 GB of 8.8 GB physical memory used. Consider boosting spark.executor.memoryOverhead.
+26/10/21 02:21:50 ERROR TaskSetManager: Task 311 in stage 4.0 failed 4 times; aborting job
+26/10/21 02:21:50 ERROR YarnClusterScheduler: Lost executor 12 on ip-10-0-2-40.ec2.internal: Container killed by YARN for exceeding memory limits.
+26/10/21 02:21:52 ERROR ApplicationMaster: User class threw exception: org.apache.spark.SparkException: Job aborted due to stage failure: Task 311 in stage 4.0 failed 4 times, most recent failure: Lost task 311.3 in stage 4.0 (TID 5780) (ip-10-0-2-40.ec2.internal executor 12): ExecutorLostFailure (executor 12 exited caused by one of the running tasks) Reason: Container killed by YARN for exceeding memory limits. 9.3 GB of 8.8 GB physical memory used. Consider boosting spark.executor.memoryOverhead.
+26/10/21 02:21:52 INFO ApplicationMaster: Final app status: FAILED, exitCode: 15

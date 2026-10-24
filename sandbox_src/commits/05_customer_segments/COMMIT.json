@@ -1,0 +1,5 @@
+{
+  "message": "Add customer_segments table and its refresh DAG",
+  "author": "Marcus Lee <marcus.lee@acme.example>",
+  "date": "2026-10-21T15:30:00+00:00"
+}
